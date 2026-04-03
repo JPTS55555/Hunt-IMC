@@ -8,8 +8,10 @@ import { Target, Activity, Droplets, Moon, Flame } from 'lucide-react';
 import { format, addWeeks } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard({ user }: { user: any }) {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [habits, setHabits] = useState<string[]>([]);
@@ -39,26 +41,8 @@ export default function Dashboard({ user }: { user: any }) {
         const h = await generateMicroHabits("Perder peso de forma saudável", data.currentWeight, data.targetWeight);
         setHabits(h);
       } else {
-        // Mock profile for demo if new user
-        const mockProfile = {
-          uid: user.uid,
-          email: user.email,
-          name: user.displayName,
-          currentWeight: 85,
-          targetWeight: 75,
-          height: 175,
-          createdAt: new Date().toISOString()
-        };
-        try {
-          await setDoc(docRef, mockProfile);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
-          return;
-        }
-        setProfile(mockProfile);
-        generateRoute(mockProfile.currentWeight, mockProfile.targetWeight);
-        const h = await generateMicroHabits("Perder peso de forma saudável", mockProfile.currentWeight, mockProfile.targetWeight);
-        setHabits(h);
+        // Redirect to setup if profile doesn't exist
+        navigate('/setup');
       }
     } catch (error) {
       console.error("Error loading profile:", error);

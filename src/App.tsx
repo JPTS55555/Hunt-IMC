@@ -14,6 +14,7 @@ import CoachChat from './pages/CoachChat';
 import VisionAnalyzer from './pages/VisionAnalyzer';
 import Explore from './pages/Explore';
 import Layout from './components/Layout';
+import SetupProfile from './pages/SetupProfile';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -52,6 +53,9 @@ export default function App() {
         {/* Public Route */}
         <Route path="/login" element={!user ? <Onboarding /> : <Navigate to="/" />} />
         
+        {/* Setup Route (No Layout) */}
+        <Route path="/setup" element={user ? <SetupProfile user={user} /> : <Navigate to="/login" />} />
+
         {/* Protected Routes */}
         <Route path="/" element={user ? <Layout /> : <Navigate to="/login" />}>
           <Route index element={<Dashboard user={user} />} />
