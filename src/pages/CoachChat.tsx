@@ -90,7 +90,35 @@ export default function CoachChat({ user }: { user: any }) {
 
     const response = await getHealthAdviceWithThinking(userMsg, profile, communityData);
     
-    const newMessagesWithAI = [...newMessagesWithUser, { role: 'model' as const, text: response }];
+    let aiText = "";
+    if (typeof response === 'string') {
+      aiText = response;
+    } else if (response.type === 'functionCall') {
+      aiText = response.text;
+      
+      // Update the profile in Firestore
+      const args = response.functionCall.args as any;
+      if (args) {
+        const updates: any = {};
+        if (args.currentWeight) updates.currentWeight = args.currentWeight;
+        if (args.targetWeight) updates.targetWeight = args.targetWeight;
+        if (args.diet) updates.diet = args.diet;
+        if (args.intolerances) updates.intolerances = args.intolerances;
+        
+        if (Object.keys(updates).length > 0) {
+          try {
+            await setDoc(doc(db, 'users', user.uid), updates, { merge: true });
+            setProfile({ ...profile, ...updates });
+          } catch (err) {
+            console.error("Error updating profile from chat:", err);
+          }
+        }
+      }
+    } else {
+      aiText = response.text;
+    }
+    
+    const newMessagesWithAI = [...newMessagesWithUser, { role: 'model' as const, text: aiText }];
     setMessages(newMessagesWithAI);
     setLoading(false);
     

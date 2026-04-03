@@ -86,6 +86,8 @@ export const getHealthAdviceWithThinking = async (question: string, profile?: an
       - Altura: ${profile.height}cm
       - Género: ${profile.gender}
       - Objetivo principal: ${profile.goal}
+      - Dieta: ${profile.diet || 'Omnívoro'}
+      - Intolerâncias: ${profile.intolerances || 'Nenhuma'}
       Usa estes dados para dar conselhos super personalizados.`;
     }
 
@@ -98,25 +100,54 @@ export const getHealthAdviceWithThinking = async (question: string, profile?: an
       Podes referir estes dados de forma natural, por exemplo: "Muitas pessoas na nossa comunidade também procuram..." ou "O peso médio da malta por aqui anda à volta de..."`;
     }
 
+    const updateProfileFunction = {
+      name: "updateProfile",
+      description: "Atualiza os dados do perfil do utilizador (peso atual, peso objetivo, dieta, intolerâncias) se ele pedir para alterar.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          currentWeight: { type: Type.NUMBER, description: "Novo peso atual em kg" },
+          targetWeight: { type: Type.NUMBER, description: "Novo peso objetivo em kg" },
+          diet: { type: Type.STRING, description: "Nova dieta (ex: Vegetariano, Vegan, Omnívoro)" },
+          intolerances: { type: Type.STRING, description: "Novas intolerâncias (ex: Lactose, Glúten, Nenhuma)" }
+        }
+      }
+    };
+
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite-preview",
       contents: question,
       config: {
-        systemInstruction
+        systemInstruction,
+        tools: [{ functionDeclarations: [updateProfileFunction] }]
       }
     });
+
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      const call = response.functionCalls[0];
+      if (call.name === "updateProfile") {
+        return {
+          type: 'functionCall',
+          functionCall: call,
+          text: "Vou atualizar o teu perfil com esses novos dados!"
+        };
+      }
+    }
     
     // Remove any markdown bolding/headers that might have slipped through
     let cleanText = response.text || "";
     cleanText = cleanText.replace(/[*#_]/g, '');
     
-    return cleanText;
+    return {
+      type: 'text',
+      text: cleanText
+    };
   } catch (error: any) {
     console.error("Error getting advice:", error);
     if (error.message?.includes('GEMINI_API_KEY')) {
-      return "Erro: A chave da API do Gemini não está configurada no Vercel. Por favor, adiciona a variável GEMINI_API_KEY e faz um novo Deploy.";
+      return { type: 'text', text: "Erro: A chave da API do Gemini não está configurada no Vercel. Por favor, adiciona a variável GEMINI_API_KEY e faz um novo Deploy." };
     }
-    return "Desculpa, ocorreu um erro ao processar a tua pergunta.";
+    return { type: 'text', text: "Desculpa, ocorreu um erro ao processar a tua pergunta." };
   }
 };
 
@@ -179,6 +210,68 @@ export const generateActionPlan = async (base64Data: string, mimeType: string, p
     throw new Error("Desculpa, não foi possível gerar o plano neste momento.");
   }
 };
+export const generateFridgeRecipe = async (base64Data: string, mimeType: string, profile: any) => {
+  try {
+    const ai = getGemini();
+    
+    const prompt = `
+      Analisa a imagem do frigorífico ou despensa deste utilizador e identifica os ingredientes disponíveis.
+      Dados do utilizador:
+      - Dieta: ${profile.diet || 'Omnívoro'}
+      - Intolerâncias: ${profile.intolerances || 'Nenhuma'}
+      - Objetivo: ${profile.targetWeight ? `Chegar aos ${profile.targetWeight}kg (atualmente com ${profile.currentWeight}kg)` : 'Manter-se saudável'}
+
+      Com base nos ingredientes visíveis na imagem e respeitando ESTRITAMENTE a dieta e intolerâncias do utilizador, cria uma receita saudável e alinhada com o seu objetivo.
+      
+      Retorna APENAS um objeto JSON com a seguinte estrutura exata:
+      {
+        "title": "Nome criativo da receita",
+        "description": "Breve descrição de por que esta receita é boa para o objetivo do utilizador",
+        "time": "Tempo estimado (ex: '20 min')",
+        "macros": {
+          "calories": "ex: 450 kcal",
+          "protein": "ex: 30g"
+        },
+        "ingredients": [
+          "Ingrediente 1 (quantidade)",
+          "Ingrediente 2 (quantidade)"
+        ],
+        "instructions": [
+          "Passo 1",
+          "Passo 2"
+        ]
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: [
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: mimeType,
+          }
+        },
+        prompt
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text);
+    }
+    throw new Error("Resposta vazia da IA.");
+  } catch (error: any) {
+    console.error("Error generating recipe:", error);
+    if (error.message?.includes('GEMINI_API_KEY')) {
+      throw new Error("Erro: A chave da API do Gemini não está configurada no Vercel. Por favor, adiciona a variável GEMINI_API_KEY e faz um novo Deploy.");
+    }
+    throw new Error("Desculpa, não foi possível gerar a receita neste momento.");
+  }
+};
+
 export const searchHealthyPlaces = async (location: string) => {
   try {
     const ai = getGemini();

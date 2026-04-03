@@ -94,6 +94,10 @@ service cloud.firestore {
       match /plans/{planId} {
         allow read, write: if isOwner(userId);
       }
+      
+      match /recipes/{recipeId} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }

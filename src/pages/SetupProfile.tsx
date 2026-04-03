@@ -13,7 +13,9 @@ export default function SetupProfile({ user }: { user: any }) {
     targetWeight: '',
     height: '',
     gender: 'Feminino',
-    birthDate: ''
+    birthDate: '',
+    diet: 'Omnívoro',
+    intolerances: 'Nenhuma'
   });
   const [loading, setLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -33,7 +35,9 @@ export default function SetupProfile({ user }: { user: any }) {
             targetWeight: data.targetWeight?.toString() || '',
             height: data.height?.toString() || '',
             gender: data.gender || 'Feminino',
-            birthDate: data.birthDate || ''
+            birthDate: data.birthDate || '',
+            diet: data.diet || 'Omnívoro',
+            intolerances: data.intolerances || 'Nenhuma'
           });
           setHasExistingProfile(true);
         }
@@ -65,6 +69,8 @@ export default function SetupProfile({ user }: { user: any }) {
         height: parseFloat(formData.height),
         gender: formData.gender,
         birthDate: formData.birthDate,
+        diet: formData.diet,
+        intolerances: formData.intolerances
       };
       
       if (!hasExistingProfile) {
@@ -168,6 +174,35 @@ export default function SetupProfile({ user }: { user: any }) {
                 <option>Feminino</option>
                 <option>Masculino</option>
                 <option>Outro</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Dieta</label>
+              <select 
+                value={formData.diet}
+                onChange={e => setFormData({...formData, diet: e.target.value})}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-teal-500 appearance-none"
+              >
+                <option>Omnívoro</option>
+                <option>Vegetariano</option>
+                <option>Vegan</option>
+                <option>Pescatariano</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Intolerâncias</label>
+              <select 
+                value={formData.intolerances}
+                onChange={e => setFormData({...formData, intolerances: e.target.value})}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-teal-500 appearance-none"
+              >
+                <option>Nenhuma</option>
+                <option>Lactose</option>
+                <option>Glúten</option>
+                <option>Frutos Secos</option>
               </select>
             </div>
           </div>

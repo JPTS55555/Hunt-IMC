@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { logOut } from '../firebase';
-import { Compass, MessageSquare, Camera, MapPin, LogOut, Target } from 'lucide-react';
+import { Compass, MessageSquare, Camera, MapPin, LogOut, Target, ChefHat } from 'lucide-react';
 
 export default function Layout() {
   const location = useLocation();
@@ -9,7 +9,7 @@ export default function Layout() {
     { path: '/', icon: Compass, label: 'Bússola' },
     { path: '/plan', icon: Target, label: 'Plano' },
     { path: '/coach', icon: MessageSquare, label: 'Coach' },
-    { path: '/vision', icon: Camera, label: 'Visão' },
+    { path: '/fridge', icon: ChefHat, label: 'Receitas' },
   ];
 
   return (
