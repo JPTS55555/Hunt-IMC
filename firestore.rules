@@ -77,6 +77,10 @@ service cloud.firestore {
                       request.resource.data.createdAt == resource.data.createdAt;
         allow delete: if isOwner(userId);
       }
+      
+      match /plans/{planId} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }

@@ -56,7 +56,7 @@ export default function SetupProfile({ user }: { user: any }) {
     setLoading(true);
     setError('');
     try {
-      const profileData = {
+      const profileData: any = {
         uid: user.uid,
         email: user.email,
         name: user.displayName || 'Viajante',
@@ -65,10 +65,13 @@ export default function SetupProfile({ user }: { user: any }) {
         height: parseFloat(formData.height),
         gender: formData.gender,
         birthDate: formData.birthDate,
-        createdAt: new Date().toISOString()
       };
       
-      await setDoc(doc(db, 'users', user.uid), profileData);
+      if (!hasExistingProfile) {
+        profileData.createdAt = new Date().toISOString();
+      }
+      
+      await setDoc(doc(db, 'users', user.uid), profileData, { merge: true });
       navigate('/');
     } catch (err) {
       console.error(err);
