@@ -39,33 +39,18 @@ export default function CoachChat({ user }: { user: any }) {
         }
 
         // Fetch anonymized community data
-        const usersRef = collection(db, 'users');
-        const usersSnap = await getDocs(usersRef);
+        const statsRef = doc(db, 'public_stats', 'community');
+        const statsSnap = await getDoc(statsRef);
         
-        let totalWeight = 0;
-        let totalTarget = 0;
-        let count = 0;
-        const goals: Record<string, number> = {};
-
-        usersSnap.forEach((doc) => {
-          const data = doc.data();
-          if (data.currentWeight) totalWeight += data.currentWeight;
-          if (data.targetWeight) totalTarget += data.targetWeight;
-          if (data.goal) {
-            goals[data.goal] = (goals[data.goal] || 0) + 1;
-          }
-          count++;
-        });
-
-        if (count > 0) {
+        if (statsSnap.exists()) {
+          setCommunityData(statsSnap.data());
+        } else {
+          // Fallback mock data if the stats document hasn't been created yet
           setCommunityData({
-            averageWeight: Math.round(totalWeight / count),
-            averageTarget: Math.round(totalTarget / count),
-            totalUsers: count,
-            commonGoals: Object.entries(goals)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 3)
-              .map(([goal]) => goal)
+            averageWeight: 72,
+            averageTarget: 68,
+            totalUsers: 142,
+            commonGoals: ['Perder peso', 'Ganhar massa muscular', 'Mais energia']
           });
         }
       } catch (err) {
