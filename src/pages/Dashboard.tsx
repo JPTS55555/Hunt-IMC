@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { motion } from 'framer-motion';
 import { generateMicroHabits } from '../lib/gemini';
-import { Settings, Target, Activity, Droplets, Moon, Flame } from 'lucide-react';
+import { Settings, Target, Activity, Droplets, Moon, Flame, Plus, Minus, Trophy } from 'lucide-react';
 import { format, addWeeks } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -16,6 +16,8 @@ export default function Dashboard({ user }: { user: any }) {
   const [loading, setLoading] = useState(true);
   const [habits, setHabits] = useState<string[]>([]);
   const [routeData, setRouteData] = useState<any[]>([]);
+  const [waterGlasses, setWaterGlasses] = useState(0);
+  const [bioScore, setBioScore] = useState(0);
 
   const calculateBMI = (weight: number, heightCm: number) => {
     if (!weight || !heightCm) return 0;
@@ -49,7 +51,17 @@ export default function Dashboard({ user }: { user: any }) {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setProfile(data);
+        setWaterGlasses(data.waterGlasses || 0);
         generateRoute(data.currentWeight, data.targetWeight);
+        
+        // Calculate BioScore
+        const bmi = Number(calculateBMI(data.currentWeight, data.height));
+        let score = 100;
+        if (bmi > 25) score -= (bmi - 25) * 2;
+        if (bmi < 18.5) score -= (18.5 - bmi) * 2;
+        score += (data.waterGlasses || 0) * 2;
+        setBioScore(Math.min(100, Math.max(0, Math.round(score))));
+
         // Load habits or generate new ones
         const h = await generateMicroHabits("Perder peso de forma saudável", data.currentWeight, data.targetWeight);
         setHabits(h);
@@ -80,6 +92,18 @@ export default function Dashboard({ user }: { user: any }) {
       currentW += (diff > 0 ? 0.5 : -0.5);
     }
     setRouteData(data);
+  };
+
+  const handleWaterChange = async (increment: number) => {
+    const newValue = Math.max(0, waterGlasses + increment);
+    setWaterGlasses(newValue);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        waterGlasses: newValue
+      });
+    } catch (error) {
+      console.error("Error updating water:", error);
+    }
   };
 
   if (loading) return <div className="p-6 text-center text-slate-400">A calcular a tua rota...</div>;
@@ -136,10 +160,54 @@ export default function Dashboard({ user }: { user: any }) {
         </motion.div>
       )}
 
+      {/* BioScore & Água (Novas Ideias) */}
+      <div className="grid grid-cols-2 gap-4">
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="bg-gradient-to-br from-teal-500/20 to-slate-800 rounded-2xl p-5 border border-teal-500/30 shadow-xl flex flex-col items-center justify-center text-center"
+        >
+          <Trophy className="w-8 h-8 text-teal-400 mb-2" />
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">BioScore</h3>
+          <div className="text-3xl font-bold text-slate-100">{bioScore}</div>
+          <p className="text-[10px] text-teal-400/80 mt-1">Baseado no teu IMC e hábitos</p>
+        </motion.div>
+
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col items-center justify-center"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Droplets className="w-5 h-5 text-blue-400" />
+            <h3 className="text-sm font-semibold text-slate-200">Água Hoje</h3>
+          </div>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => handleWaterChange(-1)}
+              className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 hover:bg-slate-600 active:scale-95 transition-all"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <div className="text-2xl font-bold text-slate-100 w-8 text-center">{waterGlasses}</div>
+            <button 
+              onClick={() => handleWaterChange(1)}
+              className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center hover:bg-blue-500/30 active:scale-95 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-2">Copos de 250ml</p>
+        </motion.div>
+      </div>
+
       {/* Simulador de Rotas */}
       <motion.div 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.3 }}
         className="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl"
       >
         <div className="flex justify-between items-end mb-6">
@@ -177,7 +245,7 @@ export default function Dashboard({ user }: { user: any }) {
       <motion.div 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.4 }}
       >
         <h3 className="text-lg font-semibold text-slate-200 mb-4">Micro-Hábitos de Hoje</h3>
         <div className="grid gap-3">

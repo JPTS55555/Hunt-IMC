@@ -1,15 +1,15 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { logOut } from '../firebase';
-import { Compass, MessageSquare, Camera, MapPin, LogOut } from 'lucide-react';
+import { Compass, MessageSquare, Camera, MapPin, LogOut, Target } from 'lucide-react';
 
 export default function Layout() {
   const location = useLocation();
 
   const navItems = [
     { path: '/', icon: Compass, label: 'Bússola' },
-    { path: '/coach', icon: MessageSquare, label: 'Coach AI' },
+    { path: '/plan', icon: Target, label: 'Plano' },
+    { path: '/coach', icon: MessageSquare, label: 'Coach' },
     { path: '/vision', icon: Camera, label: 'Visão' },
-    { path: '/explore', icon: MapPin, label: 'Explorar' },
   ];
 
   return (

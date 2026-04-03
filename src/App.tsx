@@ -14,6 +14,7 @@ import CoachChat from './pages/CoachChat';
 import VisionAnalyzer from './pages/VisionAnalyzer';
 import Explore from './pages/Explore';
 import Layout from './components/Layout';
+import ActionPlan from './pages/ActionPlan';
 import SetupProfile from './pages/SetupProfile';
 
 export default function App() {
@@ -61,6 +62,7 @@ export default function App() {
           <Route index element={<Dashboard user={user} />} />
           <Route path="coach" element={<CoachChat user={user} />} />
           <Route path="vision" element={<VisionAnalyzer user={user} />} />
+          <Route path="plan" element={<ActionPlan user={user} />} />
           <Route path="explore" element={<Explore user={user} />} />
         </Route>
       </Routes>
