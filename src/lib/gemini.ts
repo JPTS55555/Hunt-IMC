@@ -22,7 +22,7 @@ export const generateMicroHabits = async (goal: string, currentWeight: number, t
   `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -50,7 +50,7 @@ export const analyzeHealthImage = async (base64Image: string, mimeType: string) 
   try {
     const ai = getGemini();
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: [
         {
           inlineData: {
@@ -75,11 +75,8 @@ export const getHealthAdviceWithThinking = async (question: string) => {
   try {
     const ai = getGemini();
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
-      contents: question,
-      config: {
-        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
-      }
+      model: "gemini-3.1-flash-lite-preview",
+      contents: question
     });
     return response.text;
   } catch (error: any) {
@@ -95,7 +92,7 @@ export const searchHealthyPlaces = async (location: string) => {
   try {
     const ai = getGemini();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: `Quais são os melhores restaurantes saudáveis ou ginásios perto de ${location}?`,
       config: {
         tools: [{ googleMaps: {} }]

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Compass, ArrowRight, Loader2 } from 'lucide-react';
+import { Compass, ArrowRight, Loader2, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function SetupProfile({ user }: { user: any }) {
@@ -16,7 +16,35 @@ export default function SetupProfile({ user }: { user: any }) {
     birthDate: ''
   });
   const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      try {
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setFormData({
+            currentWeight: data.currentWeight?.toString() || '',
+            targetWeight: data.targetWeight?.toString() || '',
+            height: data.height?.toString() || '',
+            gender: data.gender || 'Feminino',
+            birthDate: data.birthDate || ''
+          });
+          setHasExistingProfile(true);
+        }
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+      } finally {
+        setInitialLoad(false);
+      }
+    };
+    fetchProfile();
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,8 +79,24 @@ export default function SetupProfile({ user }: { user: any }) {
     }
   };
 
+  if (initialLoad) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 relative">
+      {hasExistingProfile && (
+        <button 
+          onClick={() => navigate('/')}
+          className="absolute top-6 right-6 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      )}
       <motion.div 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -60,8 +104,12 @@ export default function SetupProfile({ user }: { user: any }) {
       >
         <div className="text-center mb-8">
           <Compass className="w-12 h-12 text-teal-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100">Configura a tua Bússola</h2>
-          <p className="text-slate-400 text-sm mt-2">Precisamos de alguns dados para traçar a tua rota ideal.</p>
+          <h2 className="text-2xl font-bold text-slate-100">
+            {hasExistingProfile ? 'Editar Perfil' : 'Configura a tua Bússola'}
+          </h2>
+          <p className="text-slate-400 text-sm mt-2">
+            {hasExistingProfile ? 'Atualiza os teus dados para recalcularmos a tua rota.' : 'Precisamos de alguns dados para traçar a tua rota ideal.'}
+          </p>
         </div>
 
         {error && (
@@ -137,7 +185,10 @@ export default function SetupProfile({ user }: { user: any }) {
             className="w-full mt-6 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold py-3 px-4 rounded-xl transition-colors flex justify-center items-center gap-2 disabled:opacity-70"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-              <>Começar a Jornada <ArrowRight className="w-5 h-5" /></>
+              <>
+                {hasExistingProfile ? 'Guardar Alterações' : 'Começar a Jornada'} 
+                {!hasExistingProfile && <ArrowRight className="w-5 h-5" />}
+              </>
             )}
           </button>
         </form>

@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { motion } from 'framer-motion';
 import { generateMicroHabits } from '../lib/gemini';
-import { Target, Activity, Droplets, Moon, Flame } from 'lucide-react';
+import { Settings, Target, Activity, Droplets, Moon, Flame } from 'lucide-react';
 import { format, addWeeks } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -95,12 +95,21 @@ export default function Dashboard({ user }: { user: any }) {
           <h2 className="text-2xl font-bold text-slate-100">Olá, {profile?.name?.split(' ')[0] || 'Viajante'}</h2>
           <p className="text-slate-400">Aqui está o teu GPS de Saúde para hoje.</p>
         </div>
-        <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-teal-500/30 flex items-center justify-center text-teal-400 overflow-hidden shrink-0">
-          {user?.photoURL ? (
-            <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-          ) : (
-            <Target className="w-6 h-6" />
-          )}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/setup')}
+            className="p-2 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-teal-400 transition-colors"
+            title="Editar Perfil"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+          <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-teal-500/30 flex items-center justify-center text-teal-400 overflow-hidden shrink-0">
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <Target className="w-6 h-6" />
+            )}
+          </div>
         </div>
       </div>
 
