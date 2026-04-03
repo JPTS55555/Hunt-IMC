@@ -17,6 +17,7 @@ import Layout from './components/Layout';
 import ActionPlan from './pages/ActionPlan';
 import FridgeChef from './pages/FridgeChef';
 import SetupProfile from './pages/SetupProfile';
+import { Analytics } from '@vercel/analytics/react';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="explore" element={<Explore user={user} />} />
         </Route>
       </Routes>
+      <Analytics />
     </BrowserRouter>
   );
 }
