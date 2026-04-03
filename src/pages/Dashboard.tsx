@@ -17,6 +17,19 @@ export default function Dashboard({ user }: { user: any }) {
   const [habits, setHabits] = useState<string[]>([]);
   const [routeData, setRouteData] = useState<any[]>([]);
 
+  const calculateBMI = (weight: number, heightCm: number) => {
+    if (!weight || !heightCm) return 0;
+    const heightM = heightCm / 100;
+    return (weight / (heightM * heightM)).toFixed(1);
+  };
+
+  const getBMICategory = (bmi: number) => {
+    if (bmi < 18.5) return { label: 'Abaixo do peso', color: 'text-blue-400', bg: 'bg-blue-400/20' };
+    if (bmi >= 18.5 && bmi < 25) return { label: 'Peso normal', color: 'text-teal-400', bg: 'bg-teal-400/20' };
+    if (bmi >= 25 && bmi < 30) return { label: 'Excesso de peso', color: 'text-yellow-400', bg: 'bg-yellow-400/20' };
+    return { label: 'Obesidade', color: 'text-coral-500', bg: 'bg-coral-500/20' };
+  };
+
   useEffect(() => {
     loadProfile();
   }, [user]);
@@ -71,6 +84,9 @@ export default function Dashboard({ user }: { user: any }) {
 
   if (loading) return <div className="p-6 text-center text-slate-400">A calcular a tua rota...</div>;
 
+  const bmi = profile ? calculateBMI(profile.currentWeight, profile.height) : 0;
+  const bmiCategory = getBMICategory(Number(bmi));
+
   return (
     <div className="p-4 max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -79,10 +95,37 @@ export default function Dashboard({ user }: { user: any }) {
           <h2 className="text-2xl font-bold text-slate-100">Olá, {profile?.name?.split(' ')[0] || 'Viajante'}</h2>
           <p className="text-slate-400">Aqui está o teu GPS de Saúde para hoje.</p>
         </div>
-        <div className="w-12 h-12 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
-          <Target className="w-6 h-6" />
+        <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-teal-500/30 flex items-center justify-center text-teal-400 overflow-hidden shrink-0">
+          {user?.photoURL ? (
+            <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <Target className="w-6 h-6" />
+          )}
         </div>
       </div>
+
+      {/* Calculadora de IMC */}
+      {profile && (
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl flex items-center justify-between"
+        >
+          <div>
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">O teu IMC Atual</h3>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-slate-100">{bmi}</span>
+              <span className={`text-sm font-medium px-2 py-1 rounded-md ${bmiCategory.color} ${bmiCategory.bg}`}>
+                {bmiCategory.label}
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-400 mb-1">Altura: {profile.height}cm</div>
+            <div className="text-xs text-slate-400">Peso: {profile.currentWeight}kg</div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Simulador de Rotas */}
       <motion.div 
