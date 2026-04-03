@@ -3,7 +3,8 @@ import { getHealthAdviceWithThinking } from '../lib/gemini';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { db } from '../firebase';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, setDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 export default function CoachChat({ user }: { user: any }) {
   const [messages, setMessages] = useState<{role: 'user'|'model', text: string}[]>([
@@ -23,6 +24,13 @@ export default function CoachChat({ user }: { user: any }) {
     const fetchData = async () => {
       if (!user) return;
       try {
+        // Fetch chat history
+        const chatRef = doc(db, 'users', user.uid, 'chats', 'coach');
+        const chatSnap = await getDoc(chatRef);
+        if (chatSnap.exists() && chatSnap.data().messages) {
+          setMessages(chatSnap.data().messages);
+        }
+
         // Fetch user profile
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
@@ -71,18 +79,38 @@ export default function CoachChat({ user }: { user: any }) {
     scrollToBottom();
   }, [messages]);
 
+  const saveChatHistory = async (newMessages: {role: 'user'|'model', text: string}[]) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'users', user.uid, 'chats', 'coach'), {
+        messages: newMessages,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error saving chat history:", error);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
     
     const userMsg = input;
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    const newMessagesWithUser = [...messages, { role: 'user' as const, text: userMsg }];
+    setMessages(newMessagesWithUser);
     setInput('');
     setLoading(true);
+    
+    // Save immediately after user sends
+    await saveChatHistory(newMessagesWithUser);
 
     const response = await getHealthAdviceWithThinking(userMsg, profile, communityData);
     
-    setMessages(prev => [...prev, { role: 'model', text: response }]);
+    const newMessagesWithAI = [...newMessagesWithUser, { role: 'model' as const, text: response }];
+    setMessages(newMessagesWithAI);
     setLoading(false);
+    
+    // Save again after AI responds
+    await saveChatHistory(newMessagesWithAI);
   };
 
   return (
@@ -107,7 +135,7 @@ export default function CoachChat({ user }: { user: any }) {
               {msg.role === 'user' ? <User className="w-4 h-4 text-white" /> : <Sparkles className="w-4 h-4 text-slate-900" />}
             </div>
             <div className={`max-w-[80%] p-3 rounded-2xl ${msg.role === 'user' ? 'bg-coral-500/20 text-coral-100 rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>
-              <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+              <p className="text-sm whitespace-pre-wrap">{msg.text.replace(/[*#_]/g, '')}</p>
             </div>
           </motion.div>
         ))}

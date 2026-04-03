@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { motion } from 'framer-motion';
 import { generateMicroHabits } from '../lib/gemini';
-import { Settings, Target, Activity, Droplets, Moon, Flame, Plus, Minus, Trophy } from 'lucide-react';
+import { Settings, Target, Activity, Droplets, Moon, Flame, Plus, Minus, Trophy, Check } from 'lucide-react';
 import { format, addWeeks } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -14,7 +14,7 @@ export default function Dashboard({ user }: { user: any }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [habits, setHabits] = useState<string[]>([]);
+  const [habits, setHabits] = useState<{text: string, completed: boolean}[]>([]);
   const [routeData, setRouteData] = useState<any[]>([]);
   const [waterGlasses, setWaterGlasses] = useState(0);
   const [bioScore, setBioScore] = useState(0);
@@ -60,11 +60,28 @@ export default function Dashboard({ user }: { user: any }) {
         if (bmi > 25) score -= (bmi - 25) * 2;
         if (bmi < 18.5) score -= (18.5 - bmi) * 2;
         score += (data.waterGlasses || 0) * 2;
+        
+        // Load habits or generate new ones
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const habitsRef = doc(db, 'users', user.uid, 'daily_habits', todayStr);
+        const habitsSnap = await getDoc(habitsRef);
+        
+        let currentHabits = [];
+        if (habitsSnap.exists()) {
+          currentHabits = habitsSnap.data().habits;
+        } else {
+          const generatedHabitsTexts = await generateMicroHabits("Perder peso de forma saudável", data.currentWeight, data.targetWeight);
+          currentHabits = generatedHabitsTexts.map((text: string) => ({ text, completed: false }));
+          await setDoc(habitsRef, { habits: currentHabits });
+        }
+        setHabits(currentHabits);
+        
+        // Add habit completion to BioScore
+        const completedHabitsCount = currentHabits.filter((h: any) => h.completed).length;
+        score += completedHabitsCount * 5;
+        
         setBioScore(Math.min(100, Math.max(0, Math.round(score))));
 
-        // Load habits or generate new ones
-        const h = await generateMicroHabits("Perder peso de forma saudável", data.currentWeight, data.targetWeight);
-        setHabits(h);
       } else {
         // Redirect to setup if profile doesn't exist
         navigate('/setup');
@@ -103,6 +120,25 @@ export default function Dashboard({ user }: { user: any }) {
       });
     } catch (error) {
       console.error("Error updating water:", error);
+    }
+  };
+
+  const toggleHabit = async (index: number) => {
+    if (!user) return;
+    
+    const newHabits = [...habits];
+    newHabits[index].completed = !newHabits[index].completed;
+    setHabits(newHabits);
+    
+    // Update BioScore locally for immediate feedback
+    setBioScore(prev => prev + (newHabits[index].completed ? 5 : -5));
+
+    try {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const habitsRef = doc(db, 'users', user.uid, 'daily_habits', todayStr);
+      await updateDoc(habitsRef, { habits: newHabits });
+    } catch (error) {
+      console.error("Error updating habit:", error);
     }
   };
 
@@ -160,7 +196,7 @@ export default function Dashboard({ user }: { user: any }) {
         </motion.div>
       )}
 
-      {/* BioScore & Água (Novas Ideias) */}
+      {/* BioScore & Água */}
       <div className="grid grid-cols-2 gap-4">
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
@@ -250,14 +286,22 @@ export default function Dashboard({ user }: { user: any }) {
         <h3 className="text-lg font-semibold text-slate-200 mb-4">Micro-Hábitos de Hoje</h3>
         <div className="grid gap-3">
           {habits.map((habit, idx) => (
-            <div key={idx} className="bg-slate-800 rounded-xl p-4 border border-slate-700 flex items-center gap-4 active:scale-[0.98] transition-transform">
-              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-teal-400 shrink-0">
+            <div 
+              key={idx} 
+              onClick={() => toggleHabit(idx)}
+              className={`bg-slate-800 rounded-xl p-4 border flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-all ${habit.completed ? 'border-teal-500/50 bg-teal-500/5' : 'border-slate-700 hover:border-slate-600'}`}
+            >
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${habit.completed ? 'bg-teal-500 text-slate-900' : 'bg-slate-700 text-teal-400'}`}>
                 {idx === 0 ? <Droplets className="w-5 h-5" /> : idx === 1 ? <Flame className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </div>
               <div className="flex-1">
-                <p className="text-slate-200 font-medium">{habit}</p>
+                <p className={`font-medium transition-colors ${habit.completed ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                  {habit.text}
+                </p>
               </div>
-              <div className="w-6 h-6 rounded-full border-2 border-slate-600"></div>
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${habit.completed ? 'border-teal-500 bg-teal-500' : 'border-slate-600'}`}>
+                {habit.completed && <Check className="w-4 h-4 text-slate-900" />}
+              </div>
             </div>
           ))}
         </div>

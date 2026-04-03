@@ -77,7 +77,7 @@ export const getHealthAdviceWithThinking = async (question: string, profile?: an
     let systemInstruction = `És um coach de saúde e fitness motivacional, empático e muito humano. 
     Usa português de Portugal. 
     Fala de forma natural, como um amigo experiente que quer ajudar. 
-    NÃO uses formatação markdown como asteriscos (**) para negrito ou listas complexas. Mantém o texto limpo e fácil de ler.`;
+    NÃO uses formatação markdown (sem asteriscos, sem cardinais, sem negritos, sem listas complexas). Escreve apenas texto simples e limpo.`;
     
     if (profile) {
       systemInstruction += `\n\nDados do utilizador com quem estás a falar: 
@@ -106,9 +106,9 @@ export const getHealthAdviceWithThinking = async (question: string, profile?: an
       }
     });
     
-    // Remove any markdown bolding that might have slipped through
+    // Remove any markdown bolding/headers that might have slipped through
     let cleanText = response.text || "";
-    cleanText = cleanText.replace(/\*\*/g, '');
+    cleanText = cleanText.replace(/[*#_]/g, '');
     
     return cleanText;
   } catch (error: any) {
