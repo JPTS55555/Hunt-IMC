@@ -6,7 +6,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
+import { doc, getDocFromServer } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import Dashboard from './pages/Dashboard';
 import Onboarding from './pages/Onboarding';
 import CoachChat from './pages/CoachChat';
@@ -19,6 +20,17 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. ");
+        }
+      }
+    }
+    testConnection();
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);

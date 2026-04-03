@@ -7,6 +7,7 @@ import { generateMicroHabits } from '../lib/gemini';
 import { Target, Activity, Droplets, Moon, Flame } from 'lucide-react';
 import { format, addWeeks } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 export default function Dashboard({ user }: { user: any }) {
   const [profile, setProfile] = useState<any>(null);
@@ -22,7 +23,13 @@ export default function Dashboard({ user }: { user: any }) {
     if (!user) return;
     try {
       const docRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(docRef);
+      let docSnap;
+      try {
+        docSnap = await getDoc(docRef);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+        return;
+      }
       
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -42,7 +49,12 @@ export default function Dashboard({ user }: { user: any }) {
           height: 175,
           createdAt: new Date().toISOString()
         };
-        await setDoc(docRef, mockProfile);
+        try {
+          await setDoc(docRef, mockProfile);
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+          return;
+        }
         setProfile(mockProfile);
         generateRoute(mockProfile.currentWeight, mockProfile.targetWeight);
         const h = await generateMicroHabits("Perder peso de forma saudável", mockProfile.currentWeight, mockProfile.targetWeight);
