@@ -71,12 +71,21 @@ export const analyzeHealthImage = async (base64Image: string, mimeType: string) 
   }
 };
 
-export const getHealthAdviceWithThinking = async (question: string) => {
+export const getHealthAdviceWithThinking = async (question: string, profile?: any) => {
   try {
     const ai = getGemini();
+    let systemInstruction = "És um coach de saúde e fitness motivacional e experiente. Usa português de Portugal.";
+    
+    if (profile) {
+      systemInstruction += `\nDados do utilizador: Peso atual ${profile.currentWeight}kg, Objetivo ${profile.targetWeight}kg, Altura ${profile.height}cm, Género ${profile.gender}. Tem isto em conta nas tuas respostas.`;
+    }
+
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite-preview",
-      contents: question
+      contents: question,
+      config: {
+        systemInstruction
+      }
     });
     return response.text;
   } catch (error: any) {
@@ -88,6 +97,65 @@ export const getHealthAdviceWithThinking = async (question: string) => {
   }
 };
 
+export const generateActionPlan = async (base64Data: string, mimeType: string, profile: any, depth: 'rapida' | 'profunda') => {
+  try {
+    const ai = getGemini();
+    const modelToUse = depth === 'profunda' ? "gemini-3.1-pro-preview" : "gemini-3.1-flash-lite-preview";
+    
+    const prompt = `
+      Analisa a imagem do físico deste utilizador.
+      Dados do utilizador:
+      - Peso atual: ${profile.currentWeight}kg
+      - Objetivo: ${profile.targetWeight}kg
+      - Altura: ${profile.height}cm
+      - Género: ${profile.gender}
+
+      Com base na imagem e nestes dados, gera um plano de ação a longo prazo.
+      Retorna APENAS um objeto JSON com a seguinte estrutura exata:
+      {
+        "analysis": "Breve análise do físico atual e viabilidade do objetivo",
+        "diet": [
+          "Dica de dieta 1",
+          "Dica de dieta 2",
+          "Dica de dieta 3"
+        ],
+        "workout": [
+          "Dica de treino 1",
+          "Dica de treino 2",
+          "Dica de treino 3"
+        ],
+        "timeline": "Estimativa realista de tempo para atingir o objetivo (ex: '3 a 4 meses')"
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: modelToUse,
+      contents: [
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: mimeType,
+          }
+        },
+        prompt
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text);
+    }
+    throw new Error("Resposta vazia da IA.");
+  } catch (error: any) {
+    console.error("Error generating plan:", error);
+    if (error.message?.includes('GEMINI_API_KEY')) {
+      throw new Error("Erro: A chave da API do Gemini não está configurada no Vercel. Por favor, adiciona a variável GEMINI_API_KEY e faz um novo Deploy.");
+    }
+    throw new Error("Desculpa, não foi possível gerar o plano neste momento.");
+  }
+};
 export const searchHealthyPlaces = async (location: string) => {
   try {
     const ai = getGemini();

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { getGemini } from '../lib/gemini';
-import { Camera, Loader2, Sparkles, Target, Activity, Calendar } from 'lucide-react';
+import { generateActionPlan } from '../lib/gemini';
+import { Camera, Loader2, Sparkles, Target, Activity, Calendar, Zap, BrainCircuit } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function ActionPlan({ user }: { user: any }) {
@@ -11,6 +11,7 @@ export default function ActionPlan({ user }: { user: any }) {
   const [plan, setPlan] = useState<any>(null);
   const [image, setImage] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [depth, setDepth] = useState<'rapida' | 'profunda'>('rapida');
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,69 +44,21 @@ export default function ActionPlan({ user }: { user: any }) {
       const profile = docSnap.data();
 
       // 2. Call Gemini to analyze image and generate plan
-      const ai = getGemini();
       const base64Data = image.split(',')[1];
       const mimeType = image.split(';')[0].split(':')[1];
 
-      const prompt = `
-        Analisa a imagem do físico deste utilizador.
-        Dados do utilizador:
-        - Peso atual: ${profile.currentWeight}kg
-        - Objetivo: ${profile.targetWeight}kg
-        - Altura: ${profile.height}cm
-        - Género: ${profile.gender}
-
-        Com base na imagem e nestes dados, gera um plano de ação a longo prazo.
-        Retorna APENAS um objeto JSON com a seguinte estrutura exata:
-        {
-          "analysis": "Breve análise do físico atual e viabilidade do objetivo",
-          "diet": [
-            "Dica de dieta 1",
-            "Dica de dieta 2",
-            "Dica de dieta 3"
-          ],
-          "workout": [
-            "Dica de treino 1",
-            "Dica de treino 2",
-            "Dica de treino 3"
-          ],
-          "timeline": "Estimativa realista de tempo para atingir o objetivo (ex: '3 a 4 meses')"
-        }
-      `;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite-preview",
-        contents: [
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: mimeType,
-            }
-          },
-          prompt
-        ],
-        config: {
-          responseMimeType: "application/json"
-        }
+      const generatedPlan = await generateActionPlan(base64Data, mimeType, profile, depth);
+      setPlan(generatedPlan);
+      
+      // Save plan to Firestore
+      await setDoc(doc(db, 'users', user.uid, 'plans', 'current'), {
+        ...generatedPlan,
+        depth,
+        createdAt: new Date().toISOString()
       });
-
-      if (response.text) {
-        const generatedPlan = JSON.parse(response.text);
-        setPlan(generatedPlan);
-        
-        // Save plan to Firestore
-        await setDoc(doc(db, 'users', user.uid, 'plans', 'current'), {
-          ...generatedPlan,
-          createdAt: new Date().toISOString()
-        });
-      }
     } catch (err: any) {
       console.error(err);
-      if (err.message?.includes('GEMINI_API_KEY')) {
-        setError('A chave da API do Gemini não está configurada no Vercel. Por favor, adiciona a variável GEMINI_API_KEY e faz um novo Deploy.');
-      } else {
-        setError('Ocorreu um erro ao gerar o plano. Tenta novamente.');
-      }
+      setError(err.message || 'Ocorreu um erro ao gerar o plano. Tenta novamente.');
     } finally {
       setLoading(false);
     }
@@ -148,7 +101,7 @@ export default function ActionPlan({ user }: { user: any }) {
               </div>
             )}
 
-            <div className="pt-4 flex flex-col gap-3 max-w-xs mx-auto">
+            <div className="pt-4 flex flex-col gap-4 max-w-xs mx-auto">
               <label className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-3 px-4 rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-2">
                 <Camera className="w-5 h-5" />
                 {image ? 'Mudar Foto' : 'Tirar Foto / Upload'}
@@ -160,11 +113,29 @@ export default function ActionPlan({ user }: { user: any }) {
                   className="hidden"
                 />
               </label>
+
+              <div className="bg-slate-900/50 p-1 rounded-xl flex">
+                <button
+                  onClick={() => setDepth('rapida')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${depth === 'rapida' ? 'bg-slate-700 text-teal-400' : 'text-slate-400 hover:text-slate-300'}`}
+                >
+                  <Zap className="w-4 h-4" /> Rápida
+                </button>
+                <button
+                  onClick={() => setDepth('profunda')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${depth === 'profunda' ? 'bg-slate-700 text-coral-400' : 'text-slate-400 hover:text-slate-300'}`}
+                >
+                  <BrainCircuit className="w-4 h-4" /> Profunda
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500 text-center -mt-2">
+                {depth === 'profunda' ? 'Análise detalhada usando Gemini Pro (pode demorar mais).' : 'Análise rápida usando Gemini Flash Lite.'}
+              </p>
               
               <button
                 onClick={generatePlan}
                 disabled={!image || loading}
-                className="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
                 {loading ? 'A analisar...' : 'Gerar Plano IA'}

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { getHealthAdviceWithThinking } from '../lib/gemini';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function CoachChat({ user }: { user: any }) {
   const [messages, setMessages] = useState<{role: 'user'|'model', text: string}[]>([
@@ -9,11 +11,28 @@ export default function CoachChat({ user }: { user: any }) {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      try {
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setProfile(docSnap.data());
+        }
+      } catch (err) {
+        console.error("Error fetching profile for coach:", err);
+      }
+    };
+    fetchProfile();
+  }, [user]);
 
   useEffect(() => {
     scrollToBottom();
@@ -27,7 +46,7 @@ export default function CoachChat({ user }: { user: any }) {
     setInput('');
     setLoading(true);
 
-    const response = await getHealthAdviceWithThinking(userMsg);
+    const response = await getHealthAdviceWithThinking(userMsg, profile);
     
     setMessages(prev => [...prev, { role: 'model', text: response }]);
     setLoading(false);
