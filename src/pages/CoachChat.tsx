@@ -3,7 +3,7 @@ import { getHealthAdviceWithThinking } from '../lib/gemini';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
 export default function CoachChat({ user }: { user: any }) {
   const [messages, setMessages] = useState<{role: 'user'|'model', text: string}[]>([
@@ -12,6 +12,7 @@ export default function CoachChat({ user }: { user: any }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [communityData, setCommunityData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -19,19 +20,51 @@ export default function CoachChat({ user }: { user: any }) {
   };
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       if (!user) return;
       try {
+        // Fetch user profile
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setProfile(docSnap.data());
         }
+
+        // Fetch anonymized community data
+        const usersRef = collection(db, 'users');
+        const usersSnap = await getDocs(usersRef);
+        
+        let totalWeight = 0;
+        let totalTarget = 0;
+        let count = 0;
+        const goals: Record<string, number> = {};
+
+        usersSnap.forEach((doc) => {
+          const data = doc.data();
+          if (data.currentWeight) totalWeight += data.currentWeight;
+          if (data.targetWeight) totalTarget += data.targetWeight;
+          if (data.goal) {
+            goals[data.goal] = (goals[data.goal] || 0) + 1;
+          }
+          count++;
+        });
+
+        if (count > 0) {
+          setCommunityData({
+            averageWeight: Math.round(totalWeight / count),
+            averageTarget: Math.round(totalTarget / count),
+            totalUsers: count,
+            commonGoals: Object.entries(goals)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([goal]) => goal)
+          });
+        }
       } catch (err) {
-        console.error("Error fetching profile for coach:", err);
+        console.error("Error fetching data for coach:", err);
       }
     };
-    fetchProfile();
+    fetchData();
   }, [user]);
 
   useEffect(() => {
@@ -46,7 +79,7 @@ export default function CoachChat({ user }: { user: any }) {
     setInput('');
     setLoading(true);
 
-    const response = await getHealthAdviceWithThinking(userMsg, profile);
+    const response = await getHealthAdviceWithThinking(userMsg, profile, communityData);
     
     setMessages(prev => [...prev, { role: 'model', text: response }]);
     setLoading(false);

@@ -71,13 +71,31 @@ export const analyzeHealthImage = async (base64Image: string, mimeType: string) 
   }
 };
 
-export const getHealthAdviceWithThinking = async (question: string, profile?: any) => {
+export const getHealthAdviceWithThinking = async (question: string, profile?: any, communityData?: any) => {
   try {
     const ai = getGemini();
-    let systemInstruction = "És um coach de saúde e fitness motivacional e experiente. Usa português de Portugal.";
+    let systemInstruction = `És um coach de saúde e fitness motivacional, empático e muito humano. 
+    Usa português de Portugal. 
+    Fala de forma natural, como um amigo experiente que quer ajudar. 
+    NÃO uses formatação markdown como asteriscos (**) para negrito ou listas complexas. Mantém o texto limpo e fácil de ler.`;
     
     if (profile) {
-      systemInstruction += `\nDados do utilizador: Peso atual ${profile.currentWeight}kg, Objetivo ${profile.targetWeight}kg, Altura ${profile.height}cm, Género ${profile.gender}. Tem isto em conta nas tuas respostas.`;
+      systemInstruction += `\n\nDados do utilizador com quem estás a falar: 
+      - Peso atual: ${profile.currentWeight}kg
+      - Objetivo: ${profile.targetWeight}kg
+      - Altura: ${profile.height}cm
+      - Género: ${profile.gender}
+      - Objetivo principal: ${profile.goal}
+      Usa estes dados para dar conselhos super personalizados.`;
+    }
+
+    if (communityData) {
+      systemInstruction += `\n\nDados anónimos da comunidade BioBússola (usa isto para contextualizar e motivar o utilizador, mostrando que ele não está sozinho):
+      - Peso médio dos utilizadores: ${communityData.averageWeight}kg
+      - Objetivo médio: ${communityData.averageTarget}kg
+      - Objetivos mais comuns: ${communityData.commonGoals.join(', ')}
+      - Total de utilizadores na comunidade: ${communityData.totalUsers}
+      Podes referir estes dados de forma natural, por exemplo: "Muitas pessoas na nossa comunidade também procuram..." ou "O peso médio da malta por aqui anda à volta de..."`;
     }
 
     const response = await ai.models.generateContent({
@@ -87,7 +105,12 @@ export const getHealthAdviceWithThinking = async (question: string, profile?: an
         systemInstruction
       }
     });
-    return response.text;
+    
+    // Remove any markdown bolding that might have slipped through
+    let cleanText = response.text || "";
+    cleanText = cleanText.replace(/\*\*/g, '');
+    
+    return cleanText;
   } catch (error: any) {
     console.error("Error getting advice:", error);
     if (error.message?.includes('GEMINI_API_KEY')) {
